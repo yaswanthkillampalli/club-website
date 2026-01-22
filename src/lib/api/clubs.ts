@@ -163,20 +163,56 @@ export const createEvent = async (eventData: any) => {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Map our frontend fields to your existing schema
-  const { error } = await supabase.from('events').insert([{
+  // 1. Create the event
+  const { data: eventInsert, error: eventError } = await supabase.from('events').insert([{
     title: eventData.title,
     description: eventData.description,
-    event_date: eventData.start_time, // Schema uses event_date
+    event_date: eventData.start_time,
+    start_at: eventData.start_time,
+    end_at: eventData.end_time,
     location: eventData.location,
     club_id: eventData.club_id,
     created_by: user?.id,
-    max_capacity: eventData.max_capacity, // New field
-    is_public: eventData.is_public,       // New field
-    event_type: 'workshop' // Default
-  }]);
+    max_capacity: eventData.max_capacity,
+    is_public: eventData.is_public,
+    is_online: eventData.is_online || false,
+    event_type: 'workshop'
+  }]).select();
+  
+  if (eventError) throw eventError;
+  if (!eventInsert || eventInsert.length === 0) throw new Error('Failed to create event');
+  
+  const eventId = eventInsert[0].id;
+  
+  // 2. Link selected registration fields
+  if (eventData.registrationFieldIds && eventData.registrationFieldIds.length > 0) {
+    const fieldLinks = eventData.registrationFieldIds.map((fieldTypeId: string, index: number) => ({
+      event_id: eventId,
+      field_type_id: fieldTypeId,
+      display_order: index,
+      is_required: true
+    }));
+    
+    const { error: linkError } = await supabase
+      .from('event_registration_fields')
+      .insert(fieldLinks);
+    
+    if (linkError) throw linkError;
+  }
+  
+  return eventId;
+};
+
+// GET ALL AVAILABLE REGISTRATION FIELD TYPES
+export const getRegistrationFieldTypes = async () => {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('registration_field_types')
+    .select('*')
+    .order('display_order', { ascending: true });
   
   if (error) throw error;
+  return data || [];
 };
 
 // New Function: Handles the Form Data
@@ -200,6 +236,20 @@ export const cancelRegistration = async (eventId: string) => {
   
   await supabase.from('event_registrations').delete()
     .eq('event_id', eventId).eq('user_id', user?.id);
+};
+
+export const deleteEvent = async (eventId: string) => {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Login required');
+  
+  // Delete the event (cascading deletes will handle registrations, fields, etc.)
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
+  
+  if (error) throw error;
 };
 
 export const toggleRsvp = async (eventId: string, status: 'going' | 'not_going') => {

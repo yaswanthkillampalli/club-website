@@ -11,6 +11,7 @@ export default function GlobalEventsPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [userClubs, setUserClubs] = useState<any[]>([]);
+  const [timeWindow, setTimeWindow] = useState<'upcoming' | 'past'>('upcoming');
   
   // Filters
   const [filter, setFilter] = useState<'all' | 'public' | 'my-clubs'>('all');
@@ -25,7 +26,7 @@ export default function GlobalEventsPage() {
         setUser(user || null);
 
         // Fetch events
-        const eventData = await getGlobalEvents();
+        const eventData = await getGlobalEvents({ window: timeWindow });
         setEvents(eventData || []);
 
         // Fetch user's club memberships if logged in
@@ -41,7 +42,7 @@ export default function GlobalEventsPage() {
       }
     }
     load();
-  }, []);
+  }, [timeWindow]);
 
   // Filter Logic
   const filteredEvents = events.filter(ev => {
@@ -52,16 +53,11 @@ export default function GlobalEventsPage() {
     return matchesSearch;
   });
 
-  // Build filter tabs dynamically
-  const filterTabs = [
+  const filterOptions = [
     { id: 'all', label: 'All Events' },
-    { id: 'public', label: 'Public / Open' },
+    { id: 'public', label: 'Public' },
+    { id: 'my-clubs', label: 'Club Events', disabled: !user || userClubs.length === 0 }
   ];
-  
-  // Only show "My Club Meetings" if user is logged in and has clubs
-  if (user && userClubs.length > 0) {
-    filterTabs.push({ id: 'my-clubs', label: 'My Club Meetings' });
-  }
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-blue-500">Loading Events...</div>;
 
@@ -90,53 +86,66 @@ export default function GlobalEventsPage() {
             </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-4 mb-8 overflow-x-auto pb-2 border-b border-white/10">
-            {filterTabs.map(f => (
-                <button
-                    key={f.id}
-                    onClick={() => setFilter(f.id as any)}
-                    className={`pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 ${
-                        filter === f.id 
-                        ? 'border-purple-500 text-purple-400' 
-                        : 'border-transparent text-gray-500 hover:text-white'
-                    }`}
-                >
-                    {f.label}
-                </button>
-            ))}
-            
-            {/* Show login prompt if not logged in */}
-            {!user && (
-                <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 bg-white/5 px-3 py-1.5 rounded border border-white/10">
-                    <LogIn className="h-3 w-3" />
-                    <span>Login to see your clubs</span>
-                </div>
-            )}
-        </div>
+    {/* Time Window + Custom Filter Pills */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <div className="flex gap-4 overflow-x-auto pb-2 border-b border-white/10 md:border-b-0">
+        {[{ id: 'upcoming', label: 'Upcoming & Live' }, { id: 'past', label: 'Past Events' }].map(tw => (
+          <button
+            key={tw.id}
+            onClick={() => setTimeWindow(tw.id as any)}
+            className={`pb-2 text-sm font-bold whitespace-nowrap transition border-b-2 ${
+              timeWindow === tw.id 
+              ? 'border-purple-500 text-purple-400' 
+              : 'border-transparent text-gray-500 hover:text-white'
+            }`}
+          >
+            {tw.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-2 py-1 shadow-lg">
+        {filterOptions.map(opt => (
+          <button
+            key={opt.id}
+            onClick={() => !opt.disabled && setFilter(opt.id as any)}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${
+              filter === opt.id
+              ? 'bg-purple-600 text-white shadow-[0_0_0_1px_rgba(168,85,247,0.6)]'
+              : 'text-gray-300 hover:text-white'
+            } ${opt.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+        {!user && (
+          <div className="text-[11px] text-gray-400 px-2">Login to see club events</div>
+        )}
+      </div>
+    </div>
 
         {/* Events Grid */}
         <div className="space-y-4">
-            {filteredEvents.length === 0 ? (
-                <div className="text-center py-20 bg-white/5 rounded-xl border border-dashed border-white/10 text-gray-500">
-                    <p className="mb-2">No events found matching your filter.</p>
-                    {filter === 'my-clubs' && !user && (
-                        <p className="text-xs text-gray-600 mt-4">Please log in to view your club events.</p>
-                    )}
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-20 bg-white/5 rounded-xl border border-dashed border-white/10 text-gray-500">
+              <p className="mb-2">No events found matching your filter.</p>
+              {filter === 'my-clubs' && !user && (
+                <p className="text-xs text-gray-600 mt-4">Please log in to view your club events.</p>
+              )}
+            </div>
+          ) : (
+            filteredEvents.map(event => (
+              <div key={event.id} className="relative">
+                {/* Tiny Badge to show who is hosting */}
+                <div className="absolute -top-3 left-4 z-10 bg-black/80 border border-white/20 px-2 py-0.5 rounded text-[10px] font-bold text-gray-300 uppercase tracking-wide">
+                  Hosted by {event.club_name || "Platform"}
                 </div>
-            ) : (
-                filteredEvents.map(event => (
-                    <div key={event.id} className="relative">
-                        {/* Tiny Badge to show who is hosting */}
-                        <div className="absolute -top-3 left-4 z-10 bg-black/80 border border-white/20 px-2 py-0.5 rounded text-[10px] font-bold text-gray-300 uppercase tracking-wide">
-                            Hosted by {event.club_name || "Platform"}
-                        </div>
                         
-                        {/* Reuse the Card */}
-                        <EventCard event={event}/>
-                    </div>
-                ))
-            )}
+                {/* Reuse the Card */}
+                <EventCard event={event} currentUserId={user?.id}/>
+              </div>
+            ))
+          )}
         </div>
 
       </div>

@@ -10,7 +10,9 @@ import {
   postAnnouncement,
   getClubMembers,
   getClubEvents,
-  createEvent
+  createEvent,
+  getRegistrationFieldTypes,
+  deleteEvent
 } from '@/lib/api/clubs';
 import { 
   Shield, Users, Bell, Check, X, 
@@ -44,13 +46,15 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
   // Event Form State
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
   const [eventLoc, setEventLoc] = useState('');
   const [eventDesc, setEventDesc] = useState('');
-
-  // ... existing state ...
   const [maxCap, setMaxCap] = useState('50');
   const [isPublic, setIsPublic] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [registrationFields, setRegistrationFields] = useState<any[]>([]);
+  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
   
   // Form State
   const [newTitle, setNewTitle] = useState('');
@@ -97,6 +101,16 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
         // F. Fetch Events
         const events = await getClubEvents(clubId);
         setEventsList(events);
+
+        // G. Fetch available registration field types
+        const fields = await getRegistrationFieldTypes();
+        setRegistrationFields(fields);
+        
+        // Pre-select default fields (first 4: full_name, phone, branch, year)
+        const defaultFieldIds = fields
+          .filter(f => ['full_name', 'phone', 'branch', 'year'].includes(f.name))
+          .map(f => f.id);
+        setSelectedFieldIds(defaultFieldIds);
 
       } catch (err) {
         console.error(err);
@@ -151,11 +165,14 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
         await createEvent({
             club_id: clubId,
             title: eventTitle,
-            start_time: new Date(eventDate).toISOString(),
+            start_time: new Date(eventStartTime).toISOString(),
+            end_time: new Date(eventEndTime).toISOString(),
             location: eventLoc,
             description: eventDesc,
-            max_capacity: parseInt(maxCap) || 50, // <--- Send Capacity
-            is_public: isPublic             // <--- Send Visibility
+            max_capacity: parseInt(maxCap) || 50,
+            is_public: isPublic,
+            is_online: isOnline,
+            registrationFieldIds: selectedFieldIds
         });
         
         toast.success("Event Published!");
@@ -163,11 +180,18 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
         
         // Reset Form
         setEventTitle('');
-        setEventDate('');
+        setEventStartTime('');
+        setEventEndTime('');
         setEventLoc('');
         setEventDesc('');
         setMaxCap('50');
         setIsPublic(false);
+        setIsOnline(false);
+        // Reset to default field UUIDs after refreshing
+        const defaultFieldIds = registrationFields
+          .filter(f => ['full_name', 'phone', 'branch', 'year'].includes(f.name))
+          .map(f => f.id);
+        setSelectedFieldIds(defaultFieldIds);
 
         // Refresh List
         const updated = await getClubEvents(clubId);
@@ -470,16 +494,16 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
                                 <input required placeholder="e.g. AI Workshop" value={eventTitle} onChange={e=>setEventTitle(e.target.value)} className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-blue-500 mt-1" />
                             </div>
 
-                            {/* Date */}
+                            {/* Start Time */}
                             <div>
-                                <label className="text-xs text-gray-500 font-bold uppercase ml-1">Date & Time</label>
-                                <input required type="datetime-local" value={eventDate} onChange={e=>setEventDate(e.target.value)} className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-blue-500 mt-1" />
+                                <label className="text-xs text-gray-500 font-bold uppercase ml-1">Start Date & Time</label>
+                                <input required type="datetime-local" value={eventStartTime} onChange={e=>setEventStartTime(e.target.value)} className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-blue-500 mt-1" />
                             </div>
 
-                            {/* Capacity (NEW) */}
+                            {/* End Time */}
                             <div>
-                                <label className="text-xs text-gray-500 font-bold uppercase ml-1">Max Capacity</label>
-                                <input required type="number" min="1" value={maxCap} onChange={e=>setMaxCap(e.target.value)} className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-blue-500 mt-1" />
+                                <label className="text-xs text-gray-500 font-bold uppercase ml-1">End Date & Time</label>
+                                <input required type="datetime-local" value={eventEndTime} onChange={e=>setEventEndTime(e.target.value)} className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-blue-500 mt-1" />
                             </div>
 
                             {/* Location */}
@@ -509,6 +533,56 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
                                 </label>
                             </div>
 
+                            {/* Online Toggle (NEW) */}
+                            <div className="md:col-span-2 bg-black/40 p-3 rounded border border-white/10 flex items-center gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    id="isOnline"
+                                    checked={isOnline} 
+                                    onChange={e=>setIsOnline(e.target.checked)} 
+                                    className="h-5 w-5 accent-blue-600 cursor-pointer" 
+                                />
+                                <label htmlFor="isOnline" className="cursor-pointer">
+                                    <span className="block text-sm text-white font-bold">Online Event</span>
+                                    <span className="block text-xs text-gray-400">Check if this is a virtual/online event.</span>
+                                </label>
+                            </div>
+
+                            {/* Registration Fields Selector (NEW) */}
+                            <div className="md:col-span-2">
+                                <label className="text-xs text-gray-500 font-bold uppercase ml-1 block mb-3">Registration Fields Required</label>
+                                <div className="bg-black/40 p-4 rounded border border-white/10 space-y-3 max-h-48 overflow-y-auto">
+                                    {registrationFields.map(field => (
+                                        <div key={field.id} className="flex items-center justify-between bg-black/50 p-3 rounded border border-white/5 hover:border-white/10 transition">
+                                            <div className="flex-1">
+                                                <label className="text-sm text-white cursor-pointer font-medium block">
+                                                    {field.label}
+                                                </label>
+                                                <span className="text-xs text-gray-500">{field.input_type}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (selectedFieldIds.includes(field.id)) {
+                                                        setSelectedFieldIds(selectedFieldIds.filter(id => id !== field.id));
+                                                    } else {
+                                                        setSelectedFieldIds([...selectedFieldIds, field.id]);
+                                                    }
+                                                }}
+                                                className={`ml-4 px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                                                    selectedFieldIds.includes(field.id)
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                                                }`}
+                                            >
+                                                {selectedFieldIds.includes(field.id) ? 'ON' : 'OFF'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">Toggle which fields users must fill when registering.</p>
+                            </div>
+
                             <button className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold md:col-span-2 transition mt-2">PUBLISH EVENT</button>
                         </form>
                     </div>
@@ -523,7 +597,14 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
                     )}
                     
                     {eventsList.map(event => (
-                        <EventCard key={event.id} event={event} isAdmin={isAdmin} />
+                        <EventCard 
+                            key={event.id} 
+                            event={event} 
+                            isAdmin={isAdmin}
+                            onDelete={(eventId: string) => {
+                                setEventsList(eventsList.filter(e => e.id !== eventId));
+                            }}
+                        />
                     ))}
                 </div>
             </div>
