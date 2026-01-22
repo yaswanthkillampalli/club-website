@@ -207,9 +207,9 @@ export default function ClubDashboard({ params }: { params: Promise<{ id: string
         
         {/* HEADER */}
         <div className="relative rounded-2xl overflow-hidden bg-gray-900 border border-white/10 mb-8">
-            <div className="h-40 md:h-56 bg-gradient-to-r from-blue-900 to-black relative">
+            <div className="h-40 md:h-56 bg-linear-to-r from-blue-900 to-black relative">
                  {club?.banner_url && <img src={club.banner_url} className="w-full h-full object-cover opacity-60" />}
-                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                 <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent"></div>
                  
                  <div className="absolute bottom-6 left-6 md:left-10">
                     <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">{club?.name}</h1>
