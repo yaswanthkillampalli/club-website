@@ -36,7 +36,7 @@ export default function ProjectCard({ project }: { project: any }) {
     // Optimistic UI Update (Update screen instantly before DB finishes)
     const newHasLiked = !hasLiked;
     setHasLiked(newHasLiked);
-    setLikes(prev => newHasLiked ? prev + 1 : prev - 1);
+    setLikes((prev: number) => newHasLiked ? prev + 1 : prev - 1);
 
     if (newHasLiked) {
       // Add Like

@@ -180,7 +180,7 @@ export const kickMember = async (teamId: string, userId: string) => {
 };
 
 // 3. EDIT TEAM
-export const updateTeam = async (teamId: string, updates: { name: string, description: string }) => {
+export const updateTeam = async (teamId: string, updates: { name?: string, description?: string, repo_link?: string, demo_link?: string, tags?: string[] }) => {
   const supabase = createClient();
   const { error } = await supabase
     .from('teams')

@@ -1,9 +1,9 @@
 'use client'
 import { Calendar, MapPin, Terminal } from 'lucide-react';
 import { useState } from 'react';
-import { registerForEvent } from '@/lib/api/events'; // We wrote this earlier!
+import { registerForEvent } from '@/lib/api/clubs';
 
-export default function EventCard({ event, userId }: { event: any, userId: string }) {
+export default function EventCard({ event, userId }: { event: any, userId?: string }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   const handleRegister = async () => {
@@ -14,7 +14,7 @@ export default function EventCard({ event, userId }: { event: any, userId: strin
     
     setStatus('loading');
     try {
-      await registerForEvent(event.id, userId);
+      await registerForEvent(event.id);
       setStatus('success');
     } catch (err: any) {
       alert(err.message); // e.g. "Already registered"
@@ -39,7 +39,7 @@ export default function EventCard({ event, userId }: { event: any, userId: strin
         </div>
         
         {/* Date Box */}
-        <div className="text-center bg-white/10 rounded p-2 min-w-[60px]">
+        <div className="text-center bg-white/10 rounded p-2 min-w-15">
           <div className="text-xs text-gray-400 uppercase">
             {new Date(event.event_date).toLocaleString('default', { month: 'short' })}
           </div>
